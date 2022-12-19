@@ -45,11 +45,11 @@ void SnakeGame::SetUp(size_t width, size_t height, size_t size, size_t game_spee
 
     renderer = SDL_CreateRenderer(window, -1, 0);
 
-    _snake = new Snake(field[field_width/2].x, field[field_width/2].x, cell_size);
+    _snake = new Snake(field[field_width/2].x, field[field_width/2].x, cell_size, field);
 }
 
 void SnakeGame::Loop() {
-    for(size_t i = 0; i < food_count; i++) food.push_back(SpawnNewFood());
+    CreateNewFood(food_count);
     while(!quit_flag) {
         ButtonHandler();
         _snake->UpdateShape(dir);
@@ -84,11 +84,12 @@ void SnakeGame::ButtonHandler(){
     }
 }
 
-SnakeGame::Snake::Snake(int start_x, int start_y, size_t cell_size) {
+SnakeGame::Snake::Snake(int start_x, int start_y, size_t cell_size, std::vector<SDL_Rect> &surface) {
     head.x = start_x;
     head.y = start_y;
     head.w = cell_size;
     head.h = head.w;
+    this->field = surface;
 }
 
 void SnakeGame::Snake::UpdateShape(Command action) {
@@ -124,7 +125,7 @@ void SnakeGame::Snake::UpdateShape(Command action) {
     }
 }
 
-SDL_Rect SnakeGame::SpawnNewFood() {
+SDL_Rect SnakeGame::GenerateFood() {
     SDL_Rect fruit;
     fruit.w = cell_size;
     fruit.h = fruit.w;
@@ -133,18 +134,18 @@ SDL_Rect SnakeGame::SpawnNewFood() {
     fruit.y = field[rand()%(field.size() - 1)].y;
 
     if(fruit.x == _snake->head.x && fruit.y == _snake->head.y){
-        fruit = SpawnNewFood();
+        fruit = GenerateFood();
     }
 
     for(size_t i = 0; i < _snake->body.size() ; i++) {
         if(fruit.x == _snake->body[i].x && fruit.y == _snake->body[i].y){
-            fruit = SpawnNewFood();
+            fruit = GenerateFood();
         }
     }
 
     for(size_t i = 0; i < food.size() ; i++) {
         if(fruit.x == food[i].x && fruit.y == food[i].y){
-            fruit = SpawnNewFood();
+            fruit = GenerateFood();
         }
     }
 
@@ -156,7 +157,7 @@ void SnakeGame::UpdateFood() {
         if(_snake->head.x == food[i].x && _snake->head.y == food[i].y) {
             food.erase(food.begin() + i);
             _snake->body_size++;
-            food.push_back(SpawnNewFood());
+            food.push_back(GenerateFood());
             break;
         }
     }
@@ -166,7 +167,7 @@ void SnakeGame::CheckCollision() {
     for(size_t i = 0; i < _snake->body.size(); i++){
         if(_snake->head.x == _snake->body[i].x && _snake->head.y == _snake->body[i].y) {
             delete _snake;
-            _snake = new Snake(field[field_width/2].x, field[field_width/2].x, cell_size);
+            _snake = new Snake(field[field_width/2].x, field[field_width/2].x, cell_size, field);
             break;
         }
     }
@@ -193,4 +194,8 @@ void SnakeGame::Render() {
     }
 
     SDL_RenderPresent(renderer);
+}
+
+void SnakeGame::CreateNewFood(size_t count) {
+    for(size_t i = 0; i < count; i++) food.push_back(GenerateFood());
 }

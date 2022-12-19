@@ -4,14 +4,6 @@
 #include <vector>
 #include <SDL2/SDL.h>
 
-static size_t field_width;
-
-static size_t field_height;
-
-static size_t cell_size;
-
-static std::vector<SDL_Rect> field;
-
 enum Command {LEFT, RIGHT, UP, DOWN};
 
 class SnakeGame {
@@ -24,11 +16,14 @@ public:
     void Loop();
 
 private:
+    size_t field_width;
+    size_t field_height;
+    size_t cell_size;
+
     SDL_Window *window;
     SDL_Renderer *renderer;
 
     size_t game_speed;
-
     size_t food_count;
 
     bool quit_flag = false;
@@ -36,7 +31,7 @@ private:
 
     class Snake {
     public:
-        Snake(int start_x, int start_y, size_t cell_size);
+        Snake(int start_x, int start_y, size_t cell_size, std::vector<SDL_Rect> &surface);
 
         void UpdateShape(Command action);
 
@@ -45,13 +40,18 @@ private:
         size_t body_size = 3;
 
         std::vector<SDL_Rect> body;
+
+        std::vector<SDL_Rect> field;
     };
     
     Snake *_snake;
 
-    std::vector<SDL_Rect> food;
+    std::vector<SDL_Rect> field;
 
-    SDL_Rect SpawnNewFood();
+    std::vector<SDL_Rect> food;
+    SDL_Rect GenerateFood();
+
+    void CreateNewFood(size_t count);
 
     void UpdateFood();
 
