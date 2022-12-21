@@ -1,22 +1,22 @@
 #include "SnakeGame.h"
 
-void SnakeGame::SetUp(size_t width, size_t height) {
-    SetUp(field_width, field_height, 20);
-}
+//void SnakeGame::SetUp(size_t width, size_t height) {
+//    SetUp(field_width, field_height, 20);
+//}
+//
+//void SnakeGame::SetUp(size_t width, size_t height, size_t size) {
+//    SetUp(field_width, field_height, size, 30);
+//}
+//
+//void SnakeGame::SetUp(size_t width, size_t height, size_t size, size_t game_speed) {
+//    SetUp(field_width, field_height, size, game_speed, 1);
+//}
 
-void SnakeGame::SetUp(size_t width, size_t height, size_t size) {
-    SetUp(field_width, field_height, size, 30);
-}
-
-void SnakeGame::SetUp(size_t width, size_t height, size_t size, size_t game_speed) {
-    SetUp(field_width, field_height, size, game_speed, 1);
-}
-
-
-void SnakeGame::SetUp(size_t width, size_t height, size_t size, size_t game_speed, size_t food_count) {
-    field_width = width;
-    field_height = height;
-    cell_size = size;
+void SnakeGame::SetUp(size_t field_width, size_t field_height, size_t cell_size, size_t players_count, size_t game_speed, size_t food_count) {
+    this->field_width = field_width;
+    this->field_height = field_height;
+    this->cell_size = cell_size;
+    this->players_count = players_count;
     this->game_speed = game_speed;
     this->food_count = food_count;
 
@@ -45,42 +45,24 @@ void SnakeGame::SetUp(size_t width, size_t height, size_t size, size_t game_spee
 
     renderer = SDL_CreateRenderer(window, -1, 0);
 
-    _snake = new Snake(field[field_width/2].x, field[field_width/2].x, cell_size, field);
+    for(size_t i = 0; i < players_count; i++){
+        Snake *snake = new Snake(field[field_width/(i+2)].x, field[field_width/(2)].y, cell_size, field);
+        snakes_family.push_back(snake);
+    }
 }
 
 void SnakeGame::Loop() {
     CreateNewFood(food_count);
     while(!quit_flag) {
-        ButtonHandler();
-        _snake->UpdateShape(dir);
-        CheckCollision();
+        for(size_t i = 0; i < snakes_family.size() ; i++){
+            ButtonHandler(snakes_family[i], keyboards_collection[i]);
+            snakes_family[i]->UpdateShape();
+        }
+        CheckCollisions();
         UpdateFood();
         ClearField();
         Render();
         SDL_Delay(game_speed);
-    }
-}
-
-void SnakeGame::ButtonHandler(){
-    SDL_Event e;
-    while (SDL_PollEvent(&e)){
-        if(e.type == SDL_QUIT) quit_flag = true;
-        if(e.type == SDL_KEYDOWN){
-            switch (e.key.keysym.sym){
-                case SDLK_a:
-                    if(dir != Command::RIGHT) dir = Command::LEFT;
-                    break;
-                case SDLK_d:
-                    if(dir != Command::LEFT) dir = Command::RIGHT;
-                    break;
-                case SDLK_w:
-                    if(dir != Command::DOWN) dir = Command::UP;
-                    break;
-                case SDLK_s:
-                    if(dir != Command::UP) dir = Command::DOWN;
-                    break;
-            }
-        }
     }
 }
 
@@ -92,7 +74,7 @@ SnakeGame::Snake::Snake(int start_x, int start_y, size_t cell_size, std::vector<
     this->field = surface;
 }
 
-void SnakeGame::Snake::UpdateShape(Command action) {
+void SnakeGame::Snake::UpdateShape() {
     size_t cell_size = head.w;
 
     body.resize(body_size);
@@ -105,7 +87,7 @@ void SnakeGame::Snake::UpdateShape(Command action) {
         prev_head = prev_prev_head;
     }
 
-    switch (action) {
+    switch (now_dir) {
         case LEFT:
             head.x -= cell_size;
             if(head.x < 0 ) head.x = field[field.size() - 1].x;
@@ -133,19 +115,21 @@ SDL_Rect SnakeGame::GenerateFood() {
     fruit.x = field[rand()%(field.size() - 1)].x;
     fruit.y = field[rand()%(field.size() - 1)].y;
 
-    if(fruit.x == _snake->head.x && fruit.y == _snake->head.y){
-        fruit = GenerateFood();
-    }
-
-    for(size_t i = 0; i < _snake->body.size() ; i++) {
-        if(fruit.x == _snake->body[i].x && fruit.y == _snake->body[i].y){
+    for(size_t i = 0; i < snakes_family.size(); i++) {
+        if (fruit.x == snakes_family[i]->head.x && fruit.y == snakes_family[i]->head.y) {
             fruit = GenerateFood();
         }
-    }
 
-    for(size_t i = 0; i < food.size() ; i++) {
-        if(fruit.x == food[i].x && fruit.y == food[i].y){
-            fruit = GenerateFood();
+        for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
+            if (fruit.x == snakes_family[i]->body[j].x && fruit.y == snakes_family[i]->body[j].y) {
+                fruit = GenerateFood();
+            }
+        }
+
+        for (size_t j = 0; j < food.size(); j++) {
+            if (fruit.x == food[j].x && fruit.y == food[j].y) {
+                fruit = GenerateFood();
+            }
         }
     }
 
@@ -154,21 +138,34 @@ SDL_Rect SnakeGame::GenerateFood() {
 
 void SnakeGame::UpdateFood() {
     for(size_t i = 0; i < food.size(); i++) {
-        if(_snake->head.x == food[i].x && _snake->head.y == food[i].y) {
-            food.erase(food.begin() + i);
-            _snake->body_size++;
-            food.push_back(GenerateFood());
-            break;
+        for(size_t j = 0; j < snakes_family.size(); j++) {
+            if (snakes_family[j]->head.x == food[i].x && snakes_family[j]->head.y == food[i].y) {
+                food.erase(food.begin() + i);
+                snakes_family[j]->body_size++;
+                food.push_back(GenerateFood());
+                break;
+            }
         }
     }
 }
 
-void SnakeGame::CheckCollision() {
-    for(size_t i = 0; i < _snake->body.size(); i++){
-        if(_snake->head.x == _snake->body[i].x && _snake->head.y == _snake->body[i].y) {
-            delete _snake;
-            _snake = new Snake(field[field_width/2].x, field[field_width/2].x, cell_size, field);
-            break;
+void SnakeGame::CheckCollisions() {
+    for(size_t i = 0; i < snakes_family.size(); i++) {
+        for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
+            if (snakes_family[i]->head.x == snakes_family[i]->body[j].x && snakes_family[i]->head.y == snakes_family[i]->body[j].y) {
+                delete snakes_family[i];
+                snakes_family[i] = new Snake(field[field_width / 2].x, field[field_width / 2].x, cell_size, field);
+                break;
+            }
+        }
+        for (size_t j = 0; j < snakes_family.size(); j++) {
+            for (size_t k = 0; k < snakes_family[j]->body.size(); k++) {
+                if (snakes_family[i]->head.x == snakes_family[j]->body[k].x && snakes_family[i]->head.y == snakes_family[j]->body[k].y) {
+                    delete snakes_family[i];
+                    snakes_family[i] = new Snake(field[field_width / 2].x, field[field_width / 2].x, cell_size, field);
+                    break;
+                }
+            }
         }
     }
 }
@@ -179,16 +176,17 @@ void SnakeGame::ClearField() {
 }
 
 void SnakeGame::Render() {
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(renderer, &_snake->head);
+    for(size_t i = 0; i < snakes_family.size(); i++) {
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderFillRect(renderer, &snakes_family[i]->head);
 
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    for(size_t i = 0; i < _snake->body.size(); i++) {
-        SDL_RenderFillRect(renderer, &_snake->body[i]);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
+            SDL_RenderFillRect(renderer, &snakes_family[i]->body[j]);
+        }
     }
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-
     for(size_t i = 0; i < food.size(); i++) {
         SDL_RenderFillRect(renderer, &food[i]);
     }
@@ -198,4 +196,36 @@ void SnakeGame::Render() {
 
 void SnakeGame::CreateNewFood(size_t count) {
     for(size_t i = 0; i < count; i++) food.push_back(GenerateFood());
+}
+
+void SnakeGame::PushKeyboard(char left, char right, char up, char down) {
+    Keyboard *k = new Keyboard(left, right, up, down);
+    keyboards_collection.push_back(k);
+}
+
+void SnakeGame::ButtonHandler(Snake *snk, Keyboard *keys){
+    SDL_Event e;
+    while (SDL_PollEvent(&e)){
+        if(e.type == SDL_QUIT) quit_flag = true;
+        if(e.type == SDL_KEYDOWN){
+            if(e.key.keysym.sym == keys->left){
+                std::cout << keys->left << '\n';
+                if(snk->now_dir != Command::RIGHT) snk->now_dir = Command::LEFT;
+                break;
+            }
+            if(e.key.keysym.sym == keys->right){
+                std::cout << keys->right << '\n';
+                if(snk->now_dir != Command::LEFT) snk->now_dir = Command::RIGHT;
+                break;
+            }
+            if(e.key.keysym.sym == keys->up){
+                if(snk->now_dir != Command::DOWN) snk->now_dir = Command::UP;
+                break;
+            }
+            if(e.key.keysym.sym == keys->down){
+                if(snk->now_dir != Command::UP) snk->now_dir = Command::DOWN;
+                break;
+            }
+        }
+    }
 }
