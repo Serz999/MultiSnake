@@ -12,7 +12,7 @@ int main() {
     Game.PushKeyboard(SDLK_f, SDLK_h, SDLK_t, SDLK_g);
     //Game.PushKeyboard(SDLK_j, SDLK_l, SDLK_i, SDLK_k);
 
-    Game.SetUp(70, 40, 20, 1, 10, 10);
+    Game.SetUp(70, 40, 20, 5, 40, 5);
     Game.SetPlayersCount(0);
     Game.Loop();
     return 0;

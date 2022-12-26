@@ -179,80 +179,89 @@ void SnakeGame::AIController(Snake *snk, size_t snk_idx) {
         }
     }
 
-//self-collision prevention
-    observer_radius = 1;
-        if(snk->moving_direction == Command::UP){
-            for(size_t i = 0; i < snk->body.size(); i++) {
+    //self-collision prevention
+    for(observer_radius = 1; observer_radius < 2; observer_radius++) {
+        if (snk->moving_direction == Command::UP) {
+            for (size_t i = 0; i < snk->body.size(); i++) {
                 if (snk->head.x == snk->body[i].x && snk->head.y - (observer_radius * cell_size) == snk->body[i].y) {
-                    if (snk->head.x - (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                    if (snk->head.x - (observer_radius * cell_size) == snk->body[i].x &&
+                        snk->head.y == snk->body[i].y) {
                         snk->moving_direction = Command::RIGHT;
                         break;
                     }
-                    if (snk->head.x + (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                    if (snk->head.x + (observer_radius * cell_size) == snk->body[i].x &&
+                        snk->head.y == snk->body[i].y) {
                         snk->moving_direction = Command::LEFT;
                         break;
                     }
                     size_t command_idx = rand() % 1;
-                    if(command_idx == 0) snk->moving_direction = Command::LEFT;
-                    if(command_idx == 1) snk->moving_direction = Command::RIGHT;
+                    if (command_idx == 0) snk->moving_direction = Command::LEFT;
+                    if (command_idx == 1) snk->moving_direction = Command::RIGHT;
                     break;
                 }
             }
         }
-        if(snk->moving_direction == Command::DOWN){
-            for(size_t i = 0; i < snk->body.size(); i++) {
+        if (snk->moving_direction == Command::DOWN) {
+            for (size_t i = 0; i < snk->body.size(); i++) {
                 if (snk->head.x == snk->body[i].x && snk->head.y + (observer_radius * cell_size) == snk->body[i].y) {
-                    if (snk->head.x - (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                    if (snk->head.x - (observer_radius * cell_size) == snk->body[i].x &&
+                        snk->head.y == snk->body[i].y) {
                         snk->moving_direction = Command::RIGHT;
                         break;
                     }
-                    if (snk->head.x + (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                    if (snk->head.x + (observer_radius * cell_size) == snk->body[i].x &&
+                        snk->head.y == snk->body[i].y) {
                         snk->moving_direction = Command::LEFT;
                         break;
                     }
                     size_t command_idx = rand() % 1;
-                    if(command_idx == 0) snk->moving_direction = Command::LEFT;
-                    if(command_idx == 1) snk->moving_direction = Command::RIGHT;
+                    if (command_idx == 0) snk->moving_direction = Command::LEFT;
+                    if (command_idx == 1) snk->moving_direction = Command::RIGHT;
                     break;
                 }
             }
         }
-        if(snk->moving_direction == Command::LEFT){
-            for(size_t i = 0; i < snk->body.size(); i++) {
+        if (snk->moving_direction == Command::LEFT) {
+            for (size_t i = 0; i < snk->body.size(); i++) {
                 if (snk->head.x - (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
-                    if (snk->head.x == snk->body[i].x && snk->head.y - (observer_radius * cell_size) == snk->body[i].y) {
+                    if (snk->head.x == snk->body[i].x &&
+                        snk->head.y - (observer_radius * cell_size) == snk->body[i].y) {
                         snk->moving_direction = Command::DOWN;
                         break;
                     }
-                    if (snk->head.x == snk->body[i].x && snk->head.y + (observer_radius * cell_size) == snk->body[i].y) {
+                    if (snk->head.x == snk->body[i].x &&
+                        snk->head.y + (observer_radius * cell_size) == snk->body[i].y) {
                         snk->moving_direction = Command::UP;
                         break;
                     }
                     size_t command_idx = rand() % 1 + 2;
-                    if(command_idx == 2) snk->moving_direction = Command::UP;
-                    if(command_idx == 3) snk->moving_direction = Command::DOWN;
+                    if (command_idx == 2) snk->moving_direction = Command::UP;
+                    if (command_idx == 3) snk->moving_direction = Command::DOWN;
                     break;
                 }
             }
         }
-        if(snk->moving_direction == Command::RIGHT){
-            for(size_t i = 0; i < snk->body.size(); i++) {
+        if (snk->moving_direction == Command::RIGHT) {
+            for (size_t i = 0; i < snk->body.size(); i++) {
                 if (snk->head.x + (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
-                    if (snk->head.x == snk->body[i].x && snk->head.y - (observer_radius * cell_size) == snk->body[i].y) {
+                    if (snk->head.x == snk->body[i].x &&
+                        snk->head.y - (observer_radius * cell_size) == snk->body[i].y) {
                         snk->moving_direction = Command::DOWN;
                         break;
                     }
-                    if (snk->head.x == snk->body[i].x && snk->head.y + (observer_radius * cell_size) == snk->body[i].y) {
+                    if (snk->head.x == snk->body[i].x &&
+                        snk->head.y + (observer_radius * cell_size) == snk->body[i].y) {
                         snk->moving_direction = Command::UP;
                         break;
                     }
                     size_t command_idx = rand() % 1 + 2;
-                    if(command_idx == 2) snk->moving_direction = Command::UP;
-                    if(command_idx == 3) snk->moving_direction = Command::DOWN;
+                    if (command_idx == 2) snk->moving_direction = Command::UP;
+                    if (command_idx == 3) snk->moving_direction = Command::DOWN;
                     break;
                 }
             }
         }
+    }
 }
 
 SnakeGame::Snake::Snake(int start_x, int start_y, size_t cell_size, std::vector<SDL_Rect> &surface) {
