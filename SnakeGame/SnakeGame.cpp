@@ -8,6 +8,7 @@ void SnakeGame::SetUp(size_t field_width, size_t field_height, size_t cell_size,
     this->game_speed = game_speed;
     this->food_count = food_count;
 
+    field={};
     for(size_t i = 0 ; i < field_height; i++){
         for(size_t j = 0 ; j < field_width; j++){
             SDL_Rect cell;
@@ -60,7 +61,7 @@ void SnakeGame::SetPlayersCount(size_t players_count) {
 }
 
 void SnakeGame::Loop() {
-    GenerateMenuBtns();
+    if(menu_mode) GenerateMenuBtns();
     SDL_Event e;
     CreateNewFood(food_count);
     while(!quit_flag) {
@@ -409,23 +410,51 @@ void SnakeGame::PushKeyboard(char left, char right, char up, char down) {
 }
 
 void SnakeGame::GenerateMenuBtns() {
+    //init condition
+    this->field_width = 70;
+    this->field_height = 40;
+    this->cell_size = 20;
+
+    for(size_t i = 0 ; i < field_height; i++){
+        for(size_t j = 0 ; j < field_width; j++){
+            SDL_Rect cell;
+            cell.w = cell_size;
+            cell.h = cell.w;
+            cell.x = j * cell_size;
+            cell.y = i * cell_size;
+            field.push_back(cell);
+        }
+    }
+
+    size_t screen_width = field_width * cell_size;
+    size_t screen_height = field_height * cell_size;
+    SDL_Init(SDL_INIT_EVERYTHING);
+    window = SDL_CreateWindow("Snake",SDL_WINDOWPOS_CENTERED_MASK,SDL_WINDOWPOS_CENTERED_MASK,screen_width,screen_height,SDL_WINDOW_OPENGL);
+    renderer = SDL_CreateRenderer(window, -1, 0);
+    ///!!!need to do snake-like relative spawn!!!
     //first line
     for(size_t i = 0; i < 6; i++){
-        SDL_Rect btn_frame{2, 2, 2 ,2};
+        size_t spawn_x = (field_width/(2 * 6)) + i * (field_width / (6));
+        size_t spawn_y = field_width/4;
+        SDL_Rect btn_frame{field[spawn_x].x, field[spawn_y].y, (int)cell_size*3 , (int)cell_size*3};
         const char* label = reinterpret_cast<const char *>(i);
         auto *btn = new Button(btn_frame, label, static_cast<ButtonEvent>(i));
         menu_buttons.push_back(btn);
     }
     //second line
     for(size_t i = 6; i < 10; i++){
-        SDL_Rect btn_frame{};
+        size_t spawn_x = (field_width/(2 * 4)) + i * (field_width / (4));
+        size_t spawn_y = field_width/3;
+        SDL_Rect btn_frame{field[spawn_x].x, field[spawn_y].y,(int)cell_size*3,(int)cell_size*3};
         const char* label = reinterpret_cast<const char *>(i);
         auto *btn = new Button(btn_frame, label, static_cast<ButtonEvent>(i));
         menu_buttons.push_back(btn);
     }
     //start line
     for(size_t i = 10; i < 11; i++){
-        SDL_Rect btn_frame{};
+        size_t spawn_x = (field_width/(2 * 1)) + i * (field_width / (1));
+        size_t spawn_y = field_width/2;
+        SDL_Rect btn_frame{field[spawn_x].x,field[spawn_y].y,(int)cell_size*6,(int)cell_size*3};
         const char* label = "Play!";
         auto *btn = new Button(btn_frame, label, static_cast<ButtonEvent>(i));
         menu_buttons.push_back(btn);
@@ -518,19 +547,20 @@ void SnakeGame::Render() {
         SDL_RenderPresent(renderer);
     } else {
         for(size_t i = 0; i < menu_buttons.size(); i++) {
-            TTF_Font* font = TTF_OpenFont("Sans.ttf", 24);
-            SDL_Color White = {255, 255, 255};
-            SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, menu_buttons[i]->label, White);
-            SDL_Texture* Message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
-
-            SDL_SetRenderDrawColor(renderer, 190, 190, 190, 250);
-            SDL_RenderCopy(renderer, Message, NULL, &menu_buttons[i]->frame);
-
-            SDL_FreeSurface(surfaceMessage);
-            SDL_DestroyTexture(Message);
-
+//            TTF_Font* font = TTF_OpenFont("Sans.ttf", 24);
+//            SDL_Color White = {255, 255, 255};
+//            SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, menu_buttons[i]->label, White);
+//            SDL_Texture* Message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+//
 //            SDL_SetRenderDrawColor(renderer, 190, 190, 190, 250);
-//            SDL_RenderFillRect(renderer, &menu_buttons[i]->frame);
+//            SDL_RenderCopy(renderer, Message, NULL, &menu_buttons[i]->frame);
+//
+//            SDL_FreeSurface(surfaceMessage);
+//            SDL_DestroyTexture(Message);
+
+            //working path
+            SDL_SetRenderDrawColor(renderer, 190, 190, 190, 250);
+            SDL_RenderFillRect(renderer, &menu_buttons[i]->frame);
         }
     }
 }
