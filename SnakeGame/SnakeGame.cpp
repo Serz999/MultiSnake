@@ -1,22 +1,10 @@
 #include "SnakeGame.h"
 
-//void SnakeGame::SetUp(size_t width, size_t height) {
-//    SetUp(field_width, field_height, 20);
-//}
-//
-//void SnakeGame::SetUp(size_t width, size_t height, size_t size) {
-//    SetUp(field_width, field_height, size, 30);
-//}
-//
-//void SnakeGame::SetUp(size_t width, size_t height, size_t size, size_t game_speed) {
-//    SetUp(field_width, field_height, size, game_speed, 1);
-//}
-
-void SnakeGame::SetUp(size_t field_width, size_t field_height, size_t cell_size, size_t players_count, size_t game_speed, size_t food_count) {
+void SnakeGame::SetUp(size_t field_width, size_t field_height, size_t cell_size, size_t snakes_count, size_t game_speed, size_t food_count) {
     this->field_width = field_width;
     this->field_height = field_height;
     this->cell_size = cell_size;
-    this->players_count = players_count;
+    this->snakes_count = snakes_count;
     this->game_speed = game_speed;
     this->food_count = food_count;
 
@@ -41,34 +29,237 @@ void SnakeGame::SetUp(size_t field_width, size_t field_height, size_t cell_size,
                               screen_width,
                               screen_height,
                               SDL_WINDOW_OPENGL
-    );
+                              );
 
     renderer = SDL_CreateRenderer(window, -1, 0);
 
-    for(size_t i = 0; i < players_count; i++){
-        Snake *snake = new Snake(field[field_width/(i+2)].x, field[field_width/(2)].y, cell_size, field);
+    for(size_t i = 0; i < snakes_count; i++){
+        size_t spawn_x = (field_width/(2 * snakes_count)) + i * (field_width / (snakes_count));
+        size_t spawn_y = field_width/2;
+        Snake *snake = new Snake(field[spawn_x].x, field[spawn_y].y, cell_size, field);
         snakes_family.push_back(snake);
     }
+
+    if(keyboards_collection.size() < snakes_family.size()){
+        size_t init_keyboards = keyboards_collection.size();
+        for (size_t i = 0; i < snakes_family.size() - init_keyboards; i++) {
+            PushKeyboard(' ', ' ', ' ', ' ');
+        }
+    }
+
+    if(pallets_collection.size() < snakes_family.size()){
+        size_t init_pallets = pallets_collection.size();
+        for (size_t i = 0; i < snakes_family.size() - init_pallets; i++) {
+            PushPalette(rand()%255, rand()%255, rand()%255, 255);
+        }
+    }
+}
+
+void SnakeGame::SetPlayersCount(size_t players_count) {
+    this->players_count = players_count;
 }
 
 void SnakeGame::Loop() {
     CreateNewFood(food_count);
     while(!quit_flag) {
+        if(players_count != 0) ButtonHandler();
         for(size_t i = 0; i < snakes_family.size() ; i++){
-            ButtonHandler(snakes_family[i], keyboards_collection[i]);
+            if(i + 1 > players_count) AIController(snakes_family[i], i);
             snakes_family[i]->UpdateShape();
+            UpdateFood();
         }
         CheckCollisions();
-        UpdateFood();
         ClearField();
         Render();
         SDL_Delay(game_speed);
     }
 }
 
+void SnakeGame::AIController(Snake *snk, size_t snk_idx) {
+    bool target_is_food = false;
+    for (size_t i = 0; i < food.size(); i++) if (snk->target.x == food[i].x && snk->target.y == food[i].y) target_is_food = true;
+    if(!target_is_food) snk->target = food[rand()%food.size()];
+
+    //for vertical-oriented snake
+    if(snk->head.y == snk->target.y){
+        if(snk->head.x > snk->target.x) if (snk->moving_direction != Command::RIGHT) snk->moving_direction = Command::LEFT;
+        if(snk->head.x < snk->target.x) if (snk->moving_direction != Command::LEFT) snk->moving_direction = Command::RIGHT;
+    }
+
+    //for horizontal-oriented snake
+    if(snk->head.x == snk->target.x){
+        if(snk->head.y > snk->target.y) if (snk->moving_direction != Command::DOWN) snk->moving_direction = Command::UP;
+        if(snk->head.y < snk->target.y) if (snk->moving_direction != Command::UP) snk->moving_direction = Command::DOWN;
+    }
+
+    //self-defence behaviour
+    size_t observer_radius = 3;
+    for(size_t i = 0; i < snakes_family.size(); i++){
+        if(i != snk_idx) {
+            for(size_t roundY = 0; roundY < observer_radius*2 + 1; roundY++) {
+                for (size_t roundX = 0; roundX < observer_radius*2 + 1; roundX++) {
+                    if (snk->head.x + (observer_radius * cell_size) - cell_size*roundX == snakes_family[i]->head.x &&
+                        snk->head.y + (observer_radius * cell_size) - cell_size*roundY == snakes_family[i]->head.y) {
+                        if (snk->moving_direction == Command::UP || snk->moving_direction == Command::DOWN) {
+                            if (snk->head.x > snakes_family[i]->head.x) {
+                                if (snk->moving_direction != Command::LEFT) snk->moving_direction = Command::RIGHT;
+                                //break;
+                                continue;
+                            }
+                            if (snk->head.x < snakes_family[i]->head.x) {
+                                if (snk->moving_direction != Command::RIGHT) snk->moving_direction = Command::LEFT;
+                                //break;
+                                continue;
+                            }
+                            size_t command_idx = rand() % 1;
+                            if(command_idx == 0) if (snk->moving_direction != Command::RIGHT) snk->moving_direction = Command::LEFT;
+                            if(command_idx == 1) if (snk->moving_direction != Command::LEFT) snk->moving_direction = Command::RIGHT;
+                            //break;
+                            continue;
+                        }
+                        if (snk->moving_direction == Command::LEFT || snk->moving_direction == Command::RIGHT) {
+                            if (snk->head.y > snakes_family[i]->head.y) {
+                                if (snk->moving_direction != Command::UP) snk->moving_direction = Command::DOWN;
+                                //break;
+                                continue;
+                            }
+                            if (snk->head.y < snakes_family[i]->head.y) {
+                                if (snk->moving_direction != Command::DOWN) snk->moving_direction = Command::UP;
+                                //break;
+                                continue;
+                            }
+                            size_t command_idx = rand() % 1 + 2;
+                            if(command_idx == 2) if (snk->moving_direction != Command::DOWN) snk->moving_direction = Command::UP;
+                            if(command_idx == 3) if (snk->moving_direction != Command::UP) snk->moving_direction = Command::DOWN;
+                            //break;
+                            continue;
+                        }
+                    }
+                    for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
+                        if (snk->head.x + (observer_radius * cell_size) - cell_size*roundX == snakes_family[i]->body[j].x &&
+                            snk->head.y + (observer_radius * cell_size) - cell_size*roundY == snakes_family[i]->body[j].y) {
+                            if (snk->moving_direction == Command::UP || snk->moving_direction == Command::DOWN) {
+                                if (snk->head.x > snakes_family[i]->body[j].x) {
+                                    if (snk->moving_direction != Command::LEFT) snk->moving_direction = Command::RIGHT;
+                                    //break;
+                                    continue;
+                                }
+                                if (snk->head.x < snakes_family[i]->body[j].x) {
+                                    if (snk->moving_direction != Command::RIGHT) snk->moving_direction = Command::LEFT;
+                                    //break;
+                                    continue;
+                                }
+                                size_t command_idx = rand() % 1;
+                                if(command_idx == 0) if (snk->moving_direction != Command::RIGHT) snk->moving_direction = Command::LEFT;
+                                if(command_idx == 1) if (snk->moving_direction != Command::LEFT) snk->moving_direction = Command::RIGHT;
+                                //break;
+                                continue;
+                            }
+                            if (snk->moving_direction == Command::LEFT || snk->moving_direction == Command::RIGHT) {
+                                if (snk->head.y > snakes_family[i]->body[j].y) {
+                                    if (snk->moving_direction != Command::UP) snk->moving_direction = Command::DOWN;
+                                    //break;
+                                    continue;
+                                }
+                                if (snk->head.y < snakes_family[i]->body[j].y) {
+                                    if (snk->moving_direction != Command::DOWN) snk->moving_direction = Command::UP;
+                                    //break;
+                                    continue;
+                                }
+                                size_t command_idx = rand() % 1 + 2;
+                                if(command_idx == 2) if (snk->moving_direction != Command::DOWN) snk->moving_direction = Command::UP;
+                                if(command_idx == 3) if (snk->moving_direction != Command::UP) snk->moving_direction = Command::DOWN;
+                                //break;
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+//self-collision prevention
+    observer_radius = 1;
+        if(snk->moving_direction == Command::UP){
+            for(size_t i = 0; i < snk->body.size(); i++) {
+                if (snk->head.x == snk->body[i].x && snk->head.y - (observer_radius * cell_size) == snk->body[i].y) {
+                    if (snk->head.x - (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                        snk->moving_direction = Command::RIGHT;
+                        break;
+                    }
+                    if (snk->head.x + (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                        snk->moving_direction = Command::LEFT;
+                        break;
+                    }
+                    size_t command_idx = rand() % 1;
+                    if(command_idx == 0) snk->moving_direction = Command::LEFT;
+                    if(command_idx == 1) snk->moving_direction = Command::RIGHT;
+                    break;
+                }
+            }
+        }
+        if(snk->moving_direction == Command::DOWN){
+            for(size_t i = 0; i < snk->body.size(); i++) {
+                if (snk->head.x == snk->body[i].x && snk->head.y + (observer_radius * cell_size) == snk->body[i].y) {
+                    if (snk->head.x - (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                        snk->moving_direction = Command::RIGHT;
+                        break;
+                    }
+                    if (snk->head.x + (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                        snk->moving_direction = Command::LEFT;
+                        break;
+                    }
+                    size_t command_idx = rand() % 1;
+                    if(command_idx == 0) snk->moving_direction = Command::LEFT;
+                    if(command_idx == 1) snk->moving_direction = Command::RIGHT;
+                    break;
+                }
+            }
+        }
+        if(snk->moving_direction == Command::LEFT){
+            for(size_t i = 0; i < snk->body.size(); i++) {
+                if (snk->head.x - (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                    if (snk->head.x == snk->body[i].x && snk->head.y - (observer_radius * cell_size) == snk->body[i].y) {
+                        snk->moving_direction = Command::DOWN;
+                        break;
+                    }
+                    if (snk->head.x == snk->body[i].x && snk->head.y + (observer_radius * cell_size) == snk->body[i].y) {
+                        snk->moving_direction = Command::UP;
+                        break;
+                    }
+                    size_t command_idx = rand() % 1 + 2;
+                    if(command_idx == 2) snk->moving_direction = Command::UP;
+                    if(command_idx == 3) snk->moving_direction = Command::DOWN;
+                    break;
+                }
+            }
+        }
+        if(snk->moving_direction == Command::RIGHT){
+            for(size_t i = 0; i < snk->body.size(); i++) {
+                if (snk->head.x + (observer_radius * cell_size) == snk->body[i].x && snk->head.y == snk->body[i].y) {
+                    if (snk->head.x == snk->body[i].x && snk->head.y - (observer_radius * cell_size) == snk->body[i].y) {
+                        snk->moving_direction = Command::DOWN;
+                        break;
+                    }
+                    if (snk->head.x == snk->body[i].x && snk->head.y + (observer_radius * cell_size) == snk->body[i].y) {
+                        snk->moving_direction = Command::UP;
+                        break;
+                    }
+                    size_t command_idx = rand() % 1 + 2;
+                    if(command_idx == 2) snk->moving_direction = Command::UP;
+                    if(command_idx == 3) snk->moving_direction = Command::DOWN;
+                    break;
+                }
+            }
+        }
+}
+
 SnakeGame::Snake::Snake(int start_x, int start_y, size_t cell_size, std::vector<SDL_Rect> &surface) {
-    head.x = start_x;
-    head.y = start_y;
+    spawn_point.x = start_x;
+    spawn_point.y = start_y;
+    head.x = spawn_point.x;
+    head.y = spawn_point.y;
     head.w = cell_size;
     head.h = head.w;
     this->field = surface;
@@ -87,7 +278,7 @@ void SnakeGame::Snake::UpdateShape() {
         prev_head = prev_prev_head;
     }
 
-    switch (now_dir) {
+    switch (moving_direction) {
         case LEFT:
             head.x -= cell_size;
             if(head.x < 0 ) head.x = field[field.size() - 1].x;
@@ -105,6 +296,39 @@ void SnakeGame::Snake::UpdateShape() {
             if(head.y > field[field.size() - 1].y ) head.y = field[0].y;
             break;
     }
+}
+
+void SnakeGame::CheckCollisions() {
+    for(size_t i = 0; i < snakes_family.size(); i++) {
+        for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
+            if (snakes_family[i]->head.x == snakes_family[i]->body[j].x && snakes_family[i]->head.y == snakes_family[i]->body[j].y) {
+                EntityRespawn(snakes_family[i], i);
+                break;
+            }
+        }
+        for(size_t j = 0; j < snakes_family.size(); j++) {
+//            if (snakes_family[i]->head.x == snakes_family[j]->head.x && snakes_family[i]->head.y == snakes_family[j]->head.y) {
+//                delete snakes_family[i];
+//                snakes_family[i] = new Snake(field[field_width / (i+2)].x, field[field_width / 2].x, cell_size, field);
+//                delete snakes_family[j];
+//                snakes_family[j] = new Snake(field[field_width / (i+2)].x, field[field_width / 2].x, cell_size, field);
+//                break;
+//            }
+            for (size_t k = 0; k < snakes_family[j]->body.size(); k++) {
+                if (snakes_family[i]->head.x == snakes_family[j]->body[k].x && snakes_family[i]->head.y == snakes_family[j]->body[k].y) {
+                    EntityRespawn(snakes_family[i], i);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void SnakeGame::EntityRespawn(Snake *snk, size_t snk_idx) {
+    size_t spawn_x = snk->spawn_point.x;
+    size_t spawn_y = snk->spawn_point.y;
+    delete snk;
+    snakes_family[snk_idx] = new Snake(spawn_x, spawn_y, cell_size, field);
 }
 
 SDL_Rect SnakeGame::GenerateFood() {
@@ -136,6 +360,10 @@ SDL_Rect SnakeGame::GenerateFood() {
     return fruit;
 }
 
+void SnakeGame::CreateNewFood(size_t count) {
+    for(size_t i = 0; i < count; i++) food.push_back(GenerateFood());
+}
+
 void SnakeGame::UpdateFood() {
     for(size_t i = 0; i < food.size(); i++) {
         for(size_t j = 0; j < snakes_family.size(); j++) {
@@ -149,20 +377,36 @@ void SnakeGame::UpdateFood() {
     }
 }
 
-void SnakeGame::CheckCollisions() {
-    for(size_t i = 0; i < snakes_family.size(); i++) {
-        for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
-            if (snakes_family[i]->head.x == snakes_family[i]->body[j].x && snakes_family[i]->head.y == snakes_family[i]->body[j].y) {
-                delete snakes_family[i];
-                snakes_family[i] = new Snake(field[field_width / 2].x, field[field_width / 2].x, cell_size, field);
-                break;
-            }
-        }
-        for (size_t j = 0; j < snakes_family.size(); j++) {
-            for (size_t k = 0; k < snakes_family[j]->body.size(); k++) {
-                if (snakes_family[i]->head.x == snakes_family[j]->body[k].x && snakes_family[i]->head.y == snakes_family[j]->body[k].y) {
-                    delete snakes_family[i];
-                    snakes_family[i] = new Snake(field[field_width / 2].x, field[field_width / 2].x, cell_size, field);
+void SnakeGame::ClearField() {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+}
+
+void SnakeGame::PushKeyboard(char left, char right, char up, char down) {
+    Keyboard *k = new Keyboard(left, right, up, down);
+    keyboards_collection.push_back(k);
+}
+
+void SnakeGame::ButtonHandler(){
+    SDL_Event e;
+    while (SDL_PollEvent(&e)){
+        if(e.type == SDL_QUIT) quit_flag = true;
+        if(e.type == SDL_KEYDOWN){
+            for(size_t i = 0; i < snakes_family.size(); i++) {
+                if (e.key.keysym.sym == keyboards_collection[i]->left) {
+                    if (snakes_family[i]->moving_direction != Command::RIGHT) snakes_family[i]->moving_direction = Command::LEFT;
+                    break;
+                }
+                if (e.key.keysym.sym == keyboards_collection[i]->right) {
+                    if (snakes_family[i]->moving_direction != Command::LEFT) snakes_family[i]->moving_direction = Command::RIGHT;
+                    break;
+                }
+                if (e.key.keysym.sym == keyboards_collection[i]->up) {
+                    if (snakes_family[i]->moving_direction != Command::DOWN) snakes_family[i]->moving_direction = Command::UP;
+                    break;
+                }
+                if (e.key.keysym.sym == keyboards_collection[i]->down) {
+                    if (snakes_family[i]->moving_direction != Command::UP) snakes_family[i]->moving_direction = Command::DOWN;
                     break;
                 }
             }
@@ -170,17 +414,17 @@ void SnakeGame::CheckCollisions() {
     }
 }
 
-void SnakeGame::ClearField() {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+void SnakeGame::PushPalette(size_t red, size_t green, size_t blue, size_t alpha) {
+    Palette *p = new Palette(red, green, blue, alpha);
+    pallets_collection.push_back(p);
 }
 
 void SnakeGame::Render() {
     for(size_t i = 0; i < snakes_family.size(); i++) {
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_SetRenderDrawColor(renderer, pallets_collection[i]->red, pallets_collection[i]->green, pallets_collection[i]->blue, pallets_collection[i]->alpha);
         SDL_RenderFillRect(renderer, &snakes_family[i]->head);
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_SetRenderDrawColor(renderer, pallets_collection[i]->red, pallets_collection[i]->green, pallets_collection[i]->blue, pallets_collection[i]->alpha);
         for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
             SDL_RenderFillRect(renderer, &snakes_family[i]->body[j]);
         }
@@ -192,40 +436,4 @@ void SnakeGame::Render() {
     }
 
     SDL_RenderPresent(renderer);
-}
-
-void SnakeGame::CreateNewFood(size_t count) {
-    for(size_t i = 0; i < count; i++) food.push_back(GenerateFood());
-}
-
-void SnakeGame::PushKeyboard(char left, char right, char up, char down) {
-    Keyboard *k = new Keyboard(left, right, up, down);
-    keyboards_collection.push_back(k);
-}
-
-void SnakeGame::ButtonHandler(Snake *snk, Keyboard *keys){
-    SDL_Event e;
-    while (SDL_PollEvent(&e)){
-        if(e.type == SDL_QUIT) quit_flag = true;
-        if(e.type == SDL_KEYDOWN){
-            if(e.key.keysym.sym == keys->left){
-                std::cout << keys->left << '\n';
-                if(snk->now_dir != Command::RIGHT) snk->now_dir = Command::LEFT;
-                break;
-            }
-            if(e.key.keysym.sym == keys->right){
-                std::cout << keys->right << '\n';
-                if(snk->now_dir != Command::LEFT) snk->now_dir = Command::RIGHT;
-                break;
-            }
-            if(e.key.keysym.sym == keys->up){
-                if(snk->now_dir != Command::DOWN) snk->now_dir = Command::UP;
-                break;
-            }
-            if(e.key.keysym.sym == keys->down){
-                if(snk->now_dir != Command::UP) snk->now_dir = Command::DOWN;
-                break;
-            }
-        }
-    }
 }
