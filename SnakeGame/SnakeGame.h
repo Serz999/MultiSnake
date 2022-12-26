@@ -3,11 +3,18 @@
 #include <string>
 #include <vector>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 enum Command {LEFT, RIGHT, UP, DOWN};
 
+enum ButtonEvent {SET_1, SET_2, SET_3, SET_5, SET_10, SET_20,
+                    SET_PLAYERS_0, SET_PLAYERS_1, SET_PLAYERS_2, SET_PLAYERS_3,
+                    START_GAME
+                    };
+
 class SnakeGame {
 public:
+    bool menu_mode = true;
     void SetUp(size_t field_width, size_t field_height, size_t cell_size, size_t snakes_count, size_t game_speed, size_t food_count);
     void SetPlayersCount(size_t players_count);
     void PushKeyboard(char left, char right, char up, char down);
@@ -28,6 +35,20 @@ private:
     SDL_Window *window;
     SDL_Renderer *renderer;
     bool quit_flag = false;
+
+    class Button {
+    public:
+        Button(SDL_Rect frame, const char * label, ButtonEvent event): frame(frame), label(label), event(event){};
+        SDL_Rect frame;
+        const char *label = " ";
+        ButtonEvent event;
+        size_t food_count;
+        size_t snakes_count;
+        size_t players_count;
+        void callEvent(SnakeGame *Game);
+    };
+
+    std::vector<Button*> menu_buttons;
 
     class Snake {
     public:
@@ -80,7 +101,9 @@ private:
     void UpdateFood();
 
     //input-output handlers
-    void ButtonHandler();
+    void GenerateMenuBtns();
+    void MenuControlHandler(SDL_Event e);
+    void ManuallyControlHandler(SDL_Event e);
     void ClearField();
     void Render();
 };

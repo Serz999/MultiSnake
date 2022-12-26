@@ -60,18 +60,30 @@ void SnakeGame::SetPlayersCount(size_t players_count) {
 }
 
 void SnakeGame::Loop() {
+    GenerateMenuBtns();
+    SDL_Event e;
     CreateNewFood(food_count);
     while(!quit_flag) {
-        if(players_count != 0) ButtonHandler();
-        for(size_t i = 0; i < snakes_family.size() ; i++){
-            if(i + 1 > players_count) AIController(snakes_family[i], i);
-            snakes_family[i]->UpdateShape();
-            UpdateFood();
+        if(!menu_mode) {
+            while (SDL_PollEvent(&e)) {
+                if (e.type == SDL_QUIT) quit_flag = true;
+                ManuallyControlHandler(e);
+            }
+            for (size_t i = 0; i < snakes_family.size(); i++) {
+                if (i + 1 > players_count) AIController(snakes_family[i], i);
+                snakes_family[i]->UpdateShape();
+                UpdateFood();
+            }
+            CheckCollisions();
+            ClearField();
+            Render();
+            SDL_Delay(game_speed);
+        } else {
+            while (SDL_PollEvent(&e)) {
+                if (e.type == SDL_QUIT) quit_flag = true;
+                MenuControlHandler(e);
+            }
         }
-        CheckCollisions();
-        ClearField();
-        Render();
-        SDL_Delay(game_speed);
     }
 }
 
@@ -396,10 +408,67 @@ void SnakeGame::PushKeyboard(char left, char right, char up, char down) {
     keyboards_collection.push_back(k);
 }
 
-void SnakeGame::ButtonHandler(){
-    SDL_Event e;
-    while (SDL_PollEvent(&e)){
-        if(e.type == SDL_QUIT) quit_flag = true;
+void SnakeGame::GenerateMenuBtns() {
+    //first line
+    for(size_t i = 0; i < 6; i++){
+        SDL_Rect btn_frame{2, 2, 2 ,2};
+        const char* label = reinterpret_cast<const char *>(i);
+        auto *btn = new Button(btn_frame, label, static_cast<ButtonEvent>(i));
+        menu_buttons.push_back(btn);
+    }
+    //second line
+    for(size_t i = 6; i < 10; i++){
+        SDL_Rect btn_frame{};
+        const char* label = reinterpret_cast<const char *>(i);
+        auto *btn = new Button(btn_frame, label, static_cast<ButtonEvent>(i));
+        menu_buttons.push_back(btn);
+    }
+    //start line
+    for(size_t i = 10; i < 11; i++){
+        SDL_Rect btn_frame{};
+        const char* label = "Play!";
+        auto *btn = new Button(btn_frame, label, static_cast<ButtonEvent>(i));
+        menu_buttons.push_back(btn);
+    }
+}
+
+void SnakeGame::MenuControlHandler(SDL_Event e) {
+    int x, y;
+    SDL_GetMouseState(&x, &y);
+    for(size_t i = 0; i < menu_buttons.size(); i++) {
+        if ((x > menu_buttons[i]->frame.x) && (x < menu_buttons[i]->frame.x + menu_buttons[i]->frame.w) &&
+        (y > menu_buttons[i]->frame.y) && (y < menu_buttons[i]->frame.y + menu_buttons[i]->frame.h)) {
+            if( e.type == SDL_MOUSEBUTTONDOWN ){
+                if( e.button.button == SDL_BUTTON_LEFT ){
+                    menu_buttons[i]->callEvent(this);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void SnakeGame::Button::callEvent(SnakeGame *Game) {
+    if(this->event == ButtonEvent::SET_1) this->snakes_count = 1; this->food_count = 1;
+    if(this->event == ButtonEvent::SET_2) this->snakes_count = 2; this->food_count = 2;
+    if(this->event == ButtonEvent::SET_3) this->snakes_count = 3; this->food_count = 3;
+    if(this->event == ButtonEvent::SET_5) this->snakes_count = 5; this->food_count = 5;
+    if(this->event == ButtonEvent::SET_10) this->snakes_count = 10; this->food_count = 10;
+    if(this->event == ButtonEvent::SET_20) this->snakes_count = 20; this->food_count = 20;
+
+    if(this->event == ButtonEvent::SET_PLAYERS_0) this->players_count = 0;
+    if(this->event == ButtonEvent::SET_PLAYERS_1) this->players_count = 1;
+    if(this->event == ButtonEvent::SET_PLAYERS_2) this->players_count = 2;
+    if(this->event == ButtonEvent::SET_PLAYERS_3) this->players_count = 3;
+
+    if(this->event == ButtonEvent::START_GAME){
+        Game->SetUp(70, 40, 20, this->snakes_count, 40, this->food_count);
+        Game->SetPlayersCount(this->players_count);
+        Game->menu_mode = false;
+    }
+}
+
+void SnakeGame::ManuallyControlHandler(SDL_Event e){
         if(e.type == SDL_KEYDOWN){
             for(size_t i = 0; i < snakes_family.size(); i++) {
                 if (e.key.keysym.sym == keyboards_collection[i]->left) {
@@ -420,7 +489,6 @@ void SnakeGame::ButtonHandler(){
                 }
             }
         }
-    }
 }
 
 void SnakeGame::PushPalette(size_t red, size_t green, size_t blue, size_t alpha) {
@@ -429,20 +497,40 @@ void SnakeGame::PushPalette(size_t red, size_t green, size_t blue, size_t alpha)
 }
 
 void SnakeGame::Render() {
-    for(size_t i = 0; i < snakes_family.size(); i++) {
-        SDL_SetRenderDrawColor(renderer, pallets_collection[i]->red, pallets_collection[i]->green, pallets_collection[i]->blue, pallets_collection[i]->alpha);
-        SDL_RenderFillRect(renderer, &snakes_family[i]->head);
+    if(!menu_mode) {
+        for (size_t i = 0; i < snakes_family.size(); i++) {
+            SDL_SetRenderDrawColor(renderer, pallets_collection[i]->red, pallets_collection[i]->green,
+                                   pallets_collection[i]->blue, pallets_collection[i]->alpha);
+            SDL_RenderFillRect(renderer, &snakes_family[i]->head);
 
-        SDL_SetRenderDrawColor(renderer, pallets_collection[i]->red, pallets_collection[i]->green, pallets_collection[i]->blue, pallets_collection[i]->alpha);
-        for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
-            SDL_RenderFillRect(renderer, &snakes_family[i]->body[j]);
+            SDL_SetRenderDrawColor(renderer, pallets_collection[i]->red, pallets_collection[i]->green,
+                                   pallets_collection[i]->blue, pallets_collection[i]->alpha);
+            for (size_t j = 0; j < snakes_family[i]->body.size(); j++) {
+                SDL_RenderFillRect(renderer, &snakes_family[i]->body[j]);
+            }
+        }
+
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        for (size_t i = 0; i < food.size(); i++) {
+            SDL_RenderFillRect(renderer, &food[i]);
+        }
+
+        SDL_RenderPresent(renderer);
+    } else {
+        for(size_t i = 0; i < menu_buttons.size(); i++) {
+            TTF_Font* font = TTF_OpenFont("Sans.ttf", 24);
+            SDL_Color White = {255, 255, 255};
+            SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, menu_buttons[i]->label, White);
+            SDL_Texture* Message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+
+            SDL_SetRenderDrawColor(renderer, 190, 190, 190, 250);
+            SDL_RenderCopy(renderer, Message, NULL, &menu_buttons[i]->frame);
+
+            SDL_FreeSurface(surfaceMessage);
+            SDL_DestroyTexture(Message);
+
+//            SDL_SetRenderDrawColor(renderer, 190, 190, 190, 250);
+//            SDL_RenderFillRect(renderer, &menu_buttons[i]->frame);
         }
     }
-
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    for(size_t i = 0; i < food.size(); i++) {
-        SDL_RenderFillRect(renderer, &food[i]);
-    }
-
-    SDL_RenderPresent(renderer);
 }
